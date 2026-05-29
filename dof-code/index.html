@@ -1,11 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DOF Code - Mini IDE</title>
+<title>Inspect Element Tool</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined">
 <style>
+/* 
+  ==============================================
+  CSS Refactor
+  - Strict B/W/Gray color palette
+  - CSS Variables for theming
+  - Optimized selectors
+  ==============================================
+*/
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg: #ffffff;
@@ -18,7 +26,6 @@
   --hover: #eeeeee;
   --error: #d32f2f;
   --success: #2e7d32;
-  --warning: #ed6c02;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
   --radius: 6px;
@@ -35,7 +42,6 @@
   --hover: #2a2a2a;
   --error: #ef5350;
   --success: #4caf50;
-  --warning: #ff9800;
 }
 body{
   font-family: var(--font-sans);
@@ -80,7 +86,7 @@ body{
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
-.controls{display:flex;gap:8px;align-items:center;}
+.controls{display:flex;gap:8px;align-items:center;position: relative;}
 .btn{
   display: inline-flex;
   align-items: center;
@@ -122,6 +128,7 @@ body{
   background: var(--accent);
   color: var(--accent-text);
 }
+.control-btn.active:hover { opacity: .85; }
 .separator { width: 1px; height: 24px; background: var(--border); }
 .left{ width: 40%; border-right: 1px solid var(--border); display: flex; flex-direction: column; margin-top: var(--header-height); }
 .right{ flex: 1; display: flex; flex-direction: column; margin-top: var(--header-height); }
@@ -185,17 +192,8 @@ textarea{
   resize: none;
 }
 textarea:focus{outline:2px solid var(--accent);border-color:transparent}
-.input-btns {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-.input-btns button {
-  padding: 8px;
-  width: auto;
-  height: 38px;
-  justify-content: center;
-}
+.input-btns{display:flex;gap:8px;flex-direction:column}
+.input-btns button{padding:8px;width:38px;height:38px;justify-content:center}
 .input-btns .material-icons-outlined { font-size: 20px; }
 .content{flex:1;position:relative;overflow:hidden}
 .view{display:none;height:100%}
@@ -401,16 +399,40 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
   <div class="tabs">
     <button class="tab" data-view="log">Log</button>
     <button class="tab active" data-view="preview">Preview</button>
-    <button class="tab" data-view="code">Files</button>
+    <button class="tab" data-view="code">Code</button>
     <button class="tab" data-view="url">URL</button>
     <button class="tab" data-view="api">API</button>
   </div>
   <div class="controls">
+    <button class="control-btn" id="fullscreenBtn" title="Full screen" aria-label="Full screen">
+      <span class="material-icons-outlined">fullscreen</span>
+    </button>
+    <button class="control-btn" id="deviceBtn" title="Device" aria-label="Device">
+      <span class="material-icons-outlined">devices</span>
+    </button>
+    <div class="dropdown-menu" id="deviceMenu">
+        <button class="dropdown-item active" data-device="desktop">
+            <span class="material-icons-outlined">desktop_windows</span>
+            <span>Desktop</span>
+        </button>
+        <button class="dropdown-item" data-device="tablet">
+            <span class="material-icons-outlined">tablet_mac</span>
+            <span>Tablet</span>
+        </button>
+        <button class="dropdown-item" data-device="mobile">
+            <span class="material-icons-outlined">phone_iphone</span>
+            <span>Mobile</span>
+        </button>
+    </div>
+    <button class="control-btn" id="reloadBtn" title="Reload" aria-label="Reload">
+        <span class="material-icons-outlined">refresh</span>
+    </button>
+    <div class="separator"></div>
+    <button class="control-btn" id="inspectBtn" title="Inspect (Ctrl+Shift+C)">
+      <span class="material-icons-outlined">travel_explore</span>
+    </button>
     <button class="control-btn" id="themeBtn" aria-label="Toggle theme">
       <span class="material-icons-outlined" id="themeIcon">light_mode</span>
-    </button>
-    <button class="control-btn" id="purgeBtn" title="Clear all data (LocalStorage)">
-      <span class="material-icons-outlined">delete_sweep</span>
     </button>
   </div>
 </div>
@@ -425,14 +447,11 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
           <button class="btn" id="sendBtn" title="Send (Ctrl+Enter)">
             <span class="material-icons-outlined">send</span>
           </button>
+          <button class="btn outline" id="clearBtn" title="Delete all messages">
+             <span class="material-icons-outlined">close</span>
+          </button>
           <button class="btn outline" id="exportBtn" title="Export Chat">
             <span class="material-icons-outlined">download</span>
-          </button>
-          <button class="btn outline" id="clearBtn" title="Delete all messages">
-            <span class="material-icons-outlined">close</span>
-          </button>
-          <button class="btn outline" id="copyAllChatBtn" title="Copy all messages">
-            <span class="material-icons-outlined">content_copy</span>
           </button>
         </div>
       </div>
@@ -450,7 +469,7 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
 
       <div class="view active" id="previewView">
         <div class="preview-wrap">
-          <iframe id="previewFrame" class="preview-frame" title="Preview"></iframe>
+          <iframe id="previewFrame" class="preview-frame"></iframe>
           <div class="overlay" id="previewOverlay"></div>
           <div class="badge" id="previewBadge">INSPECTING</div>
         </div>
@@ -462,8 +481,14 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
             <div class="file-explorer-header">
               <span>File explorer</span>
               <div class="file-explorer-actions">
+                <button class="control-btn" title="Search">
+                  <span class="material-icons-outlined">search</span>
+                </button>
                 <button class="control-btn" id="addFileMenuBtn" title="New...">
                   <span class="material-icons-outlined">add</span>
+                </button>
+                <button class="control-btn" title="Collapse">
+                  <span class="material-icons-outlined">unfold_less</span>
                 </button>
               </div>
             </div>
@@ -495,6 +520,10 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
                     <span class="material-icons-outlined">edit</span>
                     <span>Rename</span>
                 </button>
+                <button class="dropdown-item" data-action="move">
+                    <span class="material-icons-outlined">drive_file_move</span>
+                    <span>Move</span>
+                </button>
                 <button class="dropdown-item" data-action="delete">
                     <span class="material-icons-outlined">delete</span>
                     <span>Delete</span>
@@ -515,13 +544,14 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
         </div>
       </div>
 
+
       <div class="view" id="urlView">
         <div class="url-bar">
           <input type="url" id="urlInput" placeholder="https://example.com">
           <button class="btn" id="goBtn">Go</button>
         </div>
         <div class="preview-wrap">
-          <iframe id="urlFrame" class="preview-frame" title="URL Preview"></iframe>
+          <iframe id="urlFrame" class="preview-frame"></iframe>
           <div class="overlay" id="urlOverlay"></div>
           <div class="badge" id="urlBadge">INSPECTING</div>
         </div>
@@ -552,6 +582,7 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
   </div>
 </div>
 
+<!-- Modal for rename -->
 <div id="renameModal" class="modal-overlay">
   <div class="modal">
     <h3>Rename File/Folder</h3>
@@ -568,10 +599,8 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
   'use strict';
 
   // ==============================================
-  // DOF Code - Mini IDE v1.3.0
-  // Includes BKL-007, BKL-008, BKL-009, BKL-011
+  // 1. CONFIGURATION & STATE
   // ==============================================
-
   const state = {
     view: 'preview',
     device: 'desktop',
@@ -582,7 +611,13 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
     logs: []
   };
   
-  const icons = { edit: 'edit', trash: 'delete', copy: 'content_copy', code: 'code' };
+  const icons = {
+      edit: 'edit',
+      trash: 'delete',
+      copy: 'content_copy',
+      code: 'code'
+  };
+
   const fileIcons = {
     html: '<span class="material-icons-outlined file-icon">code</span>',
     css: '<span class="material-icons-outlined file-icon">css</span>',
@@ -591,8 +626,13 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
     folder: '<span class="material-icons-outlined file-icon">folder</span>'
   };
   
-  let activeFileItem = null, contextMenuTarget = null, isFrameAccessibleForInspect = true;
+  let activeFileItem = null;
+  let contextMenuTarget = null;
+  let isFrameAccessibleForInspect = true;
 
+  // ==============================================
+  // 2. DOM ELEMENTS
+  // ==============================================
   const el = {
     body: document.body,
     views: document.querySelectorAll('.view'),
@@ -606,13 +646,16 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
     urlOverlay: document.getElementById('urlOverlay'),
     previewBadge: document.getElementById('previewBadge'),
     urlBadge: document.getElementById('urlBadge'),
+    fullscreenBtn: document.getElementById('fullscreenBtn'),
+    deviceBtn: document.getElementById('deviceBtn'),
+    deviceMenu: document.getElementById('deviceMenu'),
+    reloadBtn: document.getElementById('reloadBtn'),
+    inspectBtn: document.getElementById('inspectBtn'),
     themeBtn: document.getElementById('themeBtn'),
     themeIcon: document.getElementById('themeIcon'),
-    purgeBtn: document.getElementById('purgeBtn'),
     sendBtn: document.getElementById('sendBtn'),
     clearBtn: document.getElementById('clearBtn'),
     exportBtn: document.getElementById('exportBtn'),
-    copyAllChatBtn: document.getElementById('copyAllChatBtn'),
     renderBtn: document.getElementById('renderBtn'),
     clearCodeBtn: document.getElementById('clearCodeBtn'),
     codeArea: document.getElementById('codeArea'),
@@ -634,21 +677,53 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
     confirmRenameBtn: document.getElementById('confirmRenameBtn')
   };
 
-  function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+  // ==============================================
+  // 3. UTILITY FUNCTIONS
+  // ==============================================
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
   
   function addLog(text, type = 'info') {
+    const id = Date.now();
     const time = new Date().toLocaleTimeString();
-    let color = 'var(--text-secondary)';
-    if (type === 'error') color = 'var(--error)';
-    if (type === 'success') color = 'var(--success)';
-    if (type === 'warning') color = 'var(--warning)';
+    const logObj = { id, content: text, time };
+    state.logs.push(logObj);
     const div = document.createElement('div');
     div.className = 'msg';
     div.style.padding = "8px 12px";
     div.style.fontSize = "13px";
+    const color = type === 'error' ? 'var(--error)' : type === 'success' ? 'var(--success)' : 'var(--text-secondary)';
     div.innerHTML = `<strong style="font-weight:500; color: ${color}">[${time}]</strong><p style="margin-top:2px">${escapeHtml(text)}</p>`;
     el.logMessages.insertBefore(div, el.logMessages.firstChild);
-    state.logs.push({ id: Date.now(), content: text, time });
+  }
+
+  function rgbToHex(rgb) {
+    if (!rgb || !rgb.startsWith('rgb')) {
+      return '';
+    }
+    if (rgb === 'rgba(0, 0, 0, 0)') {
+      return 'transparent';
+    }
+    const parts = rgb.match(/\d+/g);
+    if (!parts || parts.length < 3) {
+      return '';
+    }
+    const r = parseInt(parts[0], 10);
+    const g = parseInt(parts[1], 10);
+    const b = parseInt(parts[2], 10);
+    const toHex = (c) => ('0' + c.toString(16)).slice(-2);
+    let hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    if (parts.length === 4) {
+      const a = parseFloat(parts[3]);
+      if (a < 1) {
+        const alphaHex = Math.round(a * 255).toString(16).padStart(2, '0');
+        hex += alphaHex;
+      }
+    }
+    return hex;
   }
 
   function getFileType(filename) {
@@ -659,268 +734,972 @@ textarea:focus{outline:2px solid var(--accent);border-color:transparent}
     return 'default';
   }
 
-  // ---------- Code Manager with renderProject() & renderActiveFile support ----------
+  // ==============================================
+  // 4. CORE MODULES
+  // ==============================================
+  
   const codeManager = (function() {
-    const internalState = { files: {}, openFiles: [], activeFile: null };
+    const internalState = {
+        files: {},
+        openFiles: [],
+        activeFile: null
+    };
     let deps = {};
 
     function _getDefaultFiles() {
-      return {
-        'index.html': { content: '<h1>Hello, World!</h1>\n<p>Edit this content to get started.</p>', type: 'html' },
-        'index.css': { content: 'body {\n  font-family: sans-serif;\n  padding: 1rem;\n}\nh1 {\n  color: #333;\n}', type: 'css' },
-        'index.js': { content: 'console.log("Hello from JavaScript!");\ndocument.querySelector("h1").addEventListener("click", () => alert("You clicked the heading!"));', type: 'js' }
-      };
+        return {
+            'index.html': { content: '<h1>Hello, World!</h1>\n<p>Edit this content to get started.</p>', type: 'html' },
+            'index.css': { content: 'body {\n  font-family: sans-serif;\n  padding: 1rem;\n}\nh1 {\n  color: #333;\n}', type: 'css' },
+            'index.js': { content: 'console.log("Hello from JavaScript!");\ndocument.querySelector("h1").addEventListener("click", () => alert("You clicked the heading!"));', type: 'js' }
+        };
     }
-    function _save() { try { localStorage.setItem('codeState', JSON.stringify(internalState)); } catch(e) {} }
+
+    function _save() {
+        try {
+            localStorage.setItem('codeState', JSON.stringify(internalState));
+        } catch(e) { console.warn("Could not save code state:", e); }
+    }
+
     function _load() {
-      try {
-        const stored = localStorage.getItem('codeState');
-        if(stored) { const parsed = JSON.parse(stored); if(parsed.files) Object.assign(internalState, parsed); return; }
-      } catch(e) {}
-      internalState.files = _getDefaultFiles();
+        try {
+            const stored = localStorage.getItem('codeState');
+            if(stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed.files && parsed.openFiles && typeof parsed.activeFile !== 'undefined') {
+                    Object.assign(internalState, parsed);
+                    return;
+                }
+            }
+        } catch(e) { console.warn("Could not load code state:", e); }
+        internalState.files = _getDefaultFiles();
     }
-    function _getIcon(path) { return internalState.files[path]?.isFolder ? fileIcons.folder : (fileIcons[internalState.files[path]?.type] || fileIcons.default); }
-    function _renderAll() { _renderFileExplorer(); _renderTabs(); _renderEditor(); }
+    
+    function _getIcon(path) {
+        const isFolder = internalState.files[path]?.isFolder;
+        if (isFolder) return fileIcons.folder;
+        const type = internalState.files[path]?.type;
+        return fileIcons[type] || fileIcons.default;
+    }
+    
+    function _renderAll() {
+        _renderFileExplorer();
+        _renderTabs();
+        _renderEditor();
+    }
+
     function _renderFileExplorer() {
-      deps.fileList.innerHTML = '';
-      Object.keys(internalState.files).sort((a,b) => (internalState.files[a]?.isFolder ? -1 : 1)).forEach(path => {
-        const item = document.createElement('div'); item.className = 'file-item'; item.dataset.path = path;
-        if (path === internalState.activeFile) item.classList.add('active');
-        item.innerHTML = `${_getIcon(path)}<span class="file-name">${path}</span>`;
-        deps.fileList.appendChild(item);
-      });
+        if (!deps.fileList) return;
+        deps.fileList.innerHTML = '';
+        
+        const sortedPaths = Object.keys(internalState.files).sort((a, b) => {
+            const aIsFolder = internalState.files[a]?.isFolder;
+            const bIsFolder = internalState.files[b]?.isFolder;
+            if (aIsFolder && !bIsFolder) return -1;
+            if (!aIsFolder && bIsFolder) return 1;
+            return a.localeCompare(b);
+        });
+        
+        sortedPaths.forEach(path => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.dataset.path = path;
+            if (path === internalState.activeFile) {
+                item.classList.add('active');
+            }
+            item.innerHTML = `${_getIcon(path)}<span class="file-name">${path}</span>`;
+            deps.fileList.appendChild(item);
+        });
     }
+
     function _renderTabs() {
-      deps.editorTabs.innerHTML = '';
-      internalState.openFiles.forEach(path => {
-        const tab = document.createElement('div'); tab.className = 'editor-tab'; tab.dataset.path = path;
-        if (path === internalState.activeFile) tab.classList.add('active');
-        tab.innerHTML = `${_getIcon(path)}<span>${path}</span><button class="close-tab-btn"><span class="material-icons-outlined">close</span></button>`;
-        deps.editorTabs.appendChild(tab);
-      });
+        if (!deps.editorTabs) return;
+        deps.editorTabs.innerHTML = '';
+        internalState.openFiles.forEach(path => {
+            const tab = document.createElement('div');
+            tab.className = 'editor-tab';
+            tab.dataset.path = path;
+            if (path === internalState.activeFile) {
+                tab.classList.add('active');
+            }
+            tab.innerHTML = `${_getIcon(path)}
+                             <span>${path}</span>
+                             <button class="close-tab-btn" aria-label="Close tab"><span class="material-icons-outlined">close</span></button>`;
+            deps.editorTabs.appendChild(tab);
+        });
     }
+    
     function _renderEditor() {
-      if(internalState.activeFile && internalState.files[internalState.activeFile] && !internalState.files[internalState.activeFile]?.isFolder) {
-        deps.codeArea.value = internalState.files[internalState.activeFile].content || '';
-        deps.codeArea.disabled = false;
-      } else { deps.codeArea.value = ''; deps.codeArea.disabled = true; }
-      updateEditorLayout();
-    }
-    function openFile(path) { if(!internalState.files[path] || internalState.files[path]?.isFolder) return; if(!internalState.openFiles.includes(path)) internalState.openFiles.push(path); setActiveFile(path); }
-    function setActiveFile(path) { internalState.activeFile = path; _renderAll(); _save(); }
-    function closeFile(path) { const idx = internalState.openFiles.indexOf(path); if(idx!==-1) internalState.openFiles.splice(idx,1); if(internalState.activeFile===path) internalState.activeFile = internalState.openFiles[0]||null; _renderAll(); _save(); }
-    function updateActiveFileContent(content) { if(internalState.activeFile && internalState.files[internalState.activeFile] && !internalState.files[internalState.activeFile]?.isFolder) { internalState.files[internalState.activeFile].content = content; _save(); } }
-
-    // Helper functions for renderProject
-    function getBaseDirectory(filePath) { const lastSlash = filePath.lastIndexOf('/'); return lastSlash === -1 ? '' : filePath.substring(0, lastSlash+1); }
-    function resolvePath(basePath, relativePath) {
-      relativePath = relativePath.replace(/^\.\//,'');
-      if(relativePath.startsWith('/')) return relativePath.substring(1);
-      if(!basePath) return relativePath;
-      const combined = basePath + relativePath;
-      const parts = combined.split('/');
-      const normalized = [];
-      for(const part of parts) { if(part==='..') normalized.pop(); else if(part!=='.' && part!=='') normalized.push(part); }
-      return normalized.join('/');
-    }
-    function processCssImports(cssContent, basePath) {
-      const importRegex = /@import\s+url\(['"]?([^'"()]+)['"]?\)/g;
-      return cssContent.replace(importRegex, (match, importPath) => {
-        const resolved = resolvePath(basePath, importPath);
-        const imported = internalState.files[resolved]?.content;
-        return imported ? processCssImports(imported, getBaseDirectory(resolved)) : match;
-      });
-    }
-    function resolveDependencies(doc, basePath) {
-      doc.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-        const href = link.getAttribute('href');
-        if(href && !href.startsWith('http') && !href.startsWith('//') && !href.startsWith('data:')) {
-          const resolved = resolvePath(basePath, href);
-          const css = internalState.files[resolved]?.content;
-          if(css) { const style = doc.createElement('style'); style.textContent = processCssImports(css, getBaseDirectory(resolved)); link.replaceWith(style); }
+        if(internalState.activeFile && internalState.files[internalState.activeFile] && !internalState.files[internalState.activeFile].isFolder) {
+            deps.codeArea.value = internalState.files[internalState.activeFile].content || '';
+            deps.codeArea.disabled = false;
+            deps.codeArea.placeholder = "Start typing your code here...";
+        } else if (internalState.activeFile && internalState.files[internalState.activeFile]?.isFolder) {
+            deps.codeArea.value = '';
+            deps.codeArea.disabled = true;
+            deps.codeArea.placeholder = "This is a folder. Select a file to edit.";
+        } else {
+            deps.codeArea.value = '';
+            deps.codeArea.disabled = true;
+            deps.codeArea.placeholder = "Open a file from the explorer to begin editing.";
         }
-      });
-      doc.querySelectorAll('script[src]').forEach(script => {
-        const src = script.getAttribute('src');
-        if(src && !src.startsWith('http') && !src.startsWith('//') && !src.startsWith('data:')) {
-          const resolved = resolvePath(basePath, src);
-          const js = internalState.files[resolved]?.content;
-          if(js) { const newScript = doc.createElement('script'); newScript.textContent = js; if(script.hasAttribute('async')) newScript.async = true; if(script.hasAttribute('defer')) newScript.defer = true; script.replaceWith(newScript); }
+        updateEditorLayout();
+    }
+    
+    function openFile(path) {
+        if (!internalState.files[path]) return;
+        if (internalState.files[path].isFolder) {
+            addLog(`📁 Cannot open folder "${path}" in editor`, 'error');
+            return;
         }
-      });
-      doc.querySelectorAll('style').forEach(style => { style.textContent = processCssImports(style.textContent, basePath); });
-      return doc;
-    }
-    function detectEntryPoint() {
-      const priorities = ['index.html','main.html','home.html','app.html'];
-      for(const p of priorities) if(internalState.files[p]) return p;
-      const rootHtml = Object.keys(internalState.files).find(f => f.endsWith('.html') && !f.includes('/'));
-      if(rootHtml) return rootHtml;
-      return Object.keys(internalState.files).find(f => f.endsWith('.html')) || null;
-    }
-    function generateDefaultPreview() {
-      const files = Object.keys(internalState.files).filter(f => !internalState.files[f]?.isFolder).map(f => `<li>📄 ${escapeHtml(f)}</li>`).join('');
-      const folders = Object.keys(internalState.files).filter(f => internalState.files[f]?.isFolder).map(f => `<li>📁 ${escapeHtml(f)}/</li>`).join('');
-      return `<!DOCTYPE html><html><head><title>DOF Code - No HTML</title><style>body{font-family:sans-serif;max-width:800px;margin:50px auto;padding:20px;background:#f5f5f5;} .container{background:white;border-radius:8px;padding:30px;}</style></head><body><div class="container"><h1>📁 No HTML File Found</h1><p>Upload a project with an index.html file to see preview.</p>${folders?`<h3>Folders:</h3><ul>${folders}</ul>`:''}${files?`<h3>Files:</h3><ul>${files}</ul>`:'<p><em>No files uploaded yet.</em></p>'}</div></body></html>`;
+        if (!internalState.openFiles.includes(path)) {
+            internalState.openFiles.push(path);
+        }
+        setActiveFile(path);
     }
 
-    // RENDER PROJECT with Active File support (BKL-011)
-    function renderProject(entryPoint = null) {
-      let target = entryPoint;
-      // If no entryPoint specified and activeFile is an HTML file, use activeFile
-      if (!target && internalState.activeFile && internalState.files[internalState.activeFile]?.type === 'html') {
-        target = internalState.activeFile;
-        addLog(`Rendering active file: ${target}`, 'info');
-      }
-      // Otherwise detect entry point
-      if (!target) target = detectEntryPoint();
-      if(!target) return generateDefaultPreview();
-      const htmlFile = internalState.files[target];
-      if(!htmlFile || htmlFile.isFolder) return generateDefaultPreview();
-      const baseDir = getBaseDirectory(target);
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlFile.content, 'text/html');
-      const processed = resolveDependencies(doc, baseDir);
-      return processed.documentElement.outerHTML;
+    function setActiveFile(path) {
+        if (!internalState.files[path]) return;
+        if (!internalState.openFiles.includes(path) && !internalState.files[path].isFolder) {
+            internalState.openFiles.push(path);
+        }
+        internalState.activeFile = path;
+        _renderAll();
+        _save();
     }
 
-    function addFile(path, content, type) { if(internalState.files[path]) return false; internalState.files[path] = { content: content || '', type: type || getFileType(path), isFolder: false }; _save(); _renderAll(); return true; }
-    function addFolder(path) { if(internalState.files[path]) return false; internalState.files[path] = { isFolder: true, content: null }; _save(); _renderAll(); return true; }
-    function renameItem(oldPath, newPath) { if(!internalState.files[oldPath] || internalState.files[newPath]) return false; internalState.files[newPath] = {...internalState.files[oldPath]}; delete internalState.files[oldPath]; const idx = internalState.openFiles.indexOf(oldPath); if(idx!==-1) internalState.openFiles[idx]=newPath; if(internalState.activeFile===oldPath) internalState.activeFile=newPath; _save(); _renderAll(); return true; }
-    function deleteItem(path) { if(!internalState.files[path]) return false; const idx = internalState.openFiles.indexOf(path); if(idx!==-1) internalState.openFiles.splice(idx,1); if(internalState.activeFile===path) internalState.activeFile = internalState.openFiles[0]||null; delete internalState.files[path]; _save(); _renderAll(); return true; }
-    function uploadFiles(files) { files.forEach(file => { const reader = new FileReader(); reader.onload = e => { const path = file.webkitRelativePath || file.name; internalState.files[path] = { content: e.target.result, type: getFileType(path), isFolder: false }; _save(); _renderAll(); }; reader.readAsText(file); }); addLog(`Uploaded ${files.length} file(s)`, 'success'); }
-    function init(dependencies) { deps = dependencies; _load(); if(internalState.openFiles.length===0 && internalState.files['index.html']) openFile('index.html'); else if(!internalState.activeFile && internalState.openFiles.length) setActiveFile(internalState.openFiles[0]); _renderAll(); }
-    return { init, renderProject, openFile, closeFile, setActiveFile, updateActiveFileContent, addFile, addFolder, renameItem, deleteItem, uploadFiles };
+    function closeFile(path) {
+        const index = internalState.openFiles.indexOf(path);
+        if (index === -1) return;
+        
+        internalState.openFiles.splice(index, 1);
+
+        if (internalState.activeFile === path) {
+            internalState.activeFile = internalState.openFiles[internalState.openFiles.length - 1] || null;
+        }
+        _renderAll();
+        _save();
+    }
+    
+    function updateActiveFileContent(content) {
+        if (internalState.activeFile && internalState.files[internalState.activeFile] && !internalState.files[internalState.activeFile].isFolder) {
+            internalState.files[internalState.activeFile].content = content;
+            _save();
+        }
+    }
+
+    function getCombinedHtml() {
+        const html = internalState.files['index.html']?.content || '';
+        const css = internalState.files['index.css']?.content || '';
+        const js = internalState.files['index.js']?.content || '';
+
+        if (!html.trim() && !css.trim() && !js.trim()) return '';
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        if (!doc.head) doc.documentElement.insertBefore(doc.createElement('head'), doc.body);
+        if (!doc.body) doc.documentElement.appendChild(doc.createElement('body'));
+
+        if (css.trim()) {
+            const style = doc.createElement('style');
+            style.textContent = css;
+            doc.head.appendChild(style);
+        }
+
+        if (js.trim()) {
+            const script = doc.createElement('script');
+            script.textContent = js; 
+            doc.body.appendChild(script);
+        }
+
+        return doc.documentElement.outerHTML;
+    }
+    
+    function clearActiveFile() {
+        if (internalState.activeFile && internalState.files[internalState.activeFile] && !internalState.files[internalState.activeFile].isFolder) {
+            internalState.files[internalState.activeFile].content = '';
+            _renderEditor();
+            _save();
+        }
+    }
+    
+    // File Management Functions
+    function addFile(path, content, type) {
+        if (internalState.files[path]) {
+            addLog(`⚠️ File "${path}" already exists`, 'error');
+            return false;
+        }
+        internalState.files[path] = { content: content || '', type: type || getFileType(path), isFolder: false };
+        _save();
+        _renderAll();
+        addLog(`✓ File "${path}" created`, 'success');
+        return true;
+    }
+
+    function addFolder(path) {
+        if (internalState.files[path]) {
+            addLog(`⚠️ Folder "${path}" already exists`, 'error');
+            return false;
+        }
+        internalState.files[path] = { isFolder: true, content: null };
+        _save();
+        _renderAll();
+        addLog(`✓ Folder "${path}" created`, 'success');
+        return true;
+    }
+
+    function renameItem(oldPath, newPath) {
+        if (!internalState.files[oldPath]) {
+            addLog(`⚠️ Item "${oldPath}" not found`, 'error');
+            return false;
+        }
+        if (internalState.files[newPath]) {
+            addLog(`⚠️ Item "${newPath}" already exists`, 'error');
+            return false;
+        }
+        
+        internalState.files[newPath] = { ...internalState.files[oldPath] };
+        delete internalState.files[oldPath];
+        
+        // Update openFiles
+        const index = internalState.openFiles.indexOf(oldPath);
+        if (index !== -1) {
+            internalState.openFiles[index] = newPath;
+        }
+        
+        // Update activeFile
+        if (internalState.activeFile === oldPath) {
+            internalState.activeFile = newPath;
+        }
+        
+        _save();
+        _renderAll();
+        addLog(`✓ Renamed "${oldPath}" to "${newPath}"`, 'success');
+        return true;
+    }
+
+    function deleteItem(path) {
+        if (!internalState.files[path]) {
+            addLog(`⚠️ Item "${path}" not found`, 'error');
+            return false;
+        }
+        
+        // Close tab if open
+        const index = internalState.openFiles.indexOf(path);
+        if (index !== -1) {
+            internalState.openFiles.splice(index, 1);
+        }
+        
+        // Update activeFile
+        if (internalState.activeFile === path) {
+            internalState.activeFile = internalState.openFiles[0] || null;
+        }
+        
+        delete internalState.files[path];
+        _save();
+        _renderAll();
+        addLog(`✓ Deleted "${path}"`, 'success');
+        return true;
+    }
+
+    function uploadFiles(files, basePath = '') {
+        let count = 0;
+        for (const file of files) {
+            const filePath = basePath ? `${basePath}/${file.name}` : file.name;
+            if (file.webkitRelativePath) {
+                // Handle folder upload
+                const relativePath = file.webkitRelativePath;
+                if (!internalState.files[relativePath]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        internalState.files[relativePath] = { 
+                            content: e.target.result, 
+                            type: getFileType(relativePath),
+                            isFolder: false 
+                        };
+                        _save();
+                        _renderAll();
+                    };
+                    reader.readAsText(file);
+                    count++;
+                }
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    internalState.files[filePath] = { 
+                        content: e.target.result, 
+                        type: getFileType(filePath),
+                        isFolder: false 
+                    };
+                    _save();
+                    _renderAll();
+                };
+                reader.readAsText(file);
+                count++;
+            }
+        }
+        if (count > 0) {
+            addLog(`✓ Uploaded ${count} file(s)`, 'success');
+        }
+    }
+
+    function getFileStructure() {
+        return internalState.files;
+    }
+    
+    function init(dependencies) {
+        deps = dependencies;
+        _load();
+
+        if (internalState.openFiles.length === 0 && internalState.files['index.html']) {
+            openFile('index.html');
+        } else {
+            if (!internalState.activeFile || !internalState.openFiles.includes(internalState.activeFile)) {
+                internalState.activeFile = internalState.openFiles[0] || null;
+            }
+        }
+        _renderAll();
+    }
+    
+    return { 
+        init, 
+        getCombinedHtml, 
+        clearActiveFile, 
+        openFile, 
+        closeFile, 
+        setActiveFile, 
+        updateActiveFileContent,
+        addFile,
+        addFolder,
+        renameItem,
+        deleteItem,
+        uploadFiles,
+        getFileStructure
+    };
   })();
 
-  // ---------- Message Manager (with copyAllChat) ----------
   const messageManager = (function() {
-    let messages = [];
+    const internalState = { messages: [] };
     let deps = {};
-    function _createActionsHTML(id) { return `<div class="msg-actions"><button onclick="messageManager.copy(${id})"><span class="material-icons-outlined">content_copy</span></button><button onclick="messageManager.edit(${id})"><span class="material-icons-outlined">edit</span></button><button onclick="messageManager.delete(${id})"><span class="material-icons-outlined">delete</span></button></div>`; }
-    function _render(msg) { const div = document.createElement('div'); div.className='msg'; div.dataset.id=msg.id; div.innerHTML=`<strong>You:</strong><pre>${deps.escapeHtml(msg.content)}</pre>${_createActionsHTML(msg.id)}`; deps.chatMessages.appendChild(div); deps.chatMessages.scrollTop = deps.chatMessages.scrollHeight; }
-    function add(content) { if(!content.trim()) return; const msg = { id: Date.now(), content: content.trim() }; messages.push(msg); _render(msg); deps.chatInput.value=''; deps.addLog('Message saved','success'); }
-    function copy(id) { const pre = document.querySelector(`.msg[data-id="${id}"] pre`); if(pre) navigator.clipboard.writeText(pre.textContent).then(()=>deps.addLog('Copied','success')).catch(()=>deps.addLog('Copy failed','error')); }
-    function edit(id) { const msg = messages.find(m=>m.id===id); if(!msg) return; const div = document.querySelector(`[data-id="${id}"]`); div.classList.add('editing'); div.innerHTML = `<strong>Edit:</strong><textarea id="edit-${id}">${deps.escapeHtml(msg.content)}</textarea><div style="margin-top:8px;display:flex;gap:4px"><button class="btn" onclick="messageManager.saveEdit(${id})">Save</button><button class="btn outline" onclick="messageManager.cancelEdit(${id})">Cancel</button></div>`; document.getElementById(`edit-${id}`).focus(); }
-    function saveEdit(id) { const newVal = document.getElementById(`edit-${id}`).value.trim(); if(!newVal) return; const msg = messages.find(m=>m.id===id); if(msg) msg.content = newVal; const div = document.querySelector(`[data-id="${id}"]`); div.classList.remove('editing'); div.innerHTML = `<strong>You:</strong><pre>${deps.escapeHtml(newVal)}</pre>${_createActionsHTML(id)}`; deps.addLog('Message edited','success'); }
-    function cancelEdit(id) { const msg = messages.find(m=>m.id===id); if(msg){ const div = document.querySelector(`[data-id="${id}"]`); div.classList.remove('editing'); div.innerHTML = `<strong>You:</strong><pre>${deps.escapeHtml(msg.content)}</pre>${_createActionsHTML(id)}`; } }
-    function del(id) { if(!confirm('Delete this message?')) return; messages = messages.filter(m=>m.id!==id); document.querySelector(`.msg[data-id="${id}"]`)?.remove(); deps.addLog('Message deleted','success'); }
-    function clearAll() { if(messages.length===0) return deps.addLog('No messages','warning'); if(confirm('Delete all messages?')){ messages=[]; deps.chatMessages.innerHTML=''; deps.addLog('All messages deleted','success'); } }
-    function exportChat() { if(messages.length===0) return deps.addLog('No messages','warning'); const text = messages.map((m,i)=>`[${i+1}] ${new Date(m.id).toLocaleString()}\n${m.content}`).join('\n\n'); const blob = new Blob([`=== CHAT EXPORT ===\n\n${text}`],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`chat-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(a.href); deps.addLog('Chat exported','success'); }
-    function copyAllChat() {
-      const messagePres = document.querySelectorAll('.msg pre');
-      if(messagePres.length === 0) { deps.addLog('No messages to copy','warning'); return; }
-      const text = Array.from(messagePres).map((pre, idx) => `[${idx+1}]\n${pre.textContent}`).join('\n\n---\n\n');
-      navigator.clipboard.writeText(text).then(() => deps.addLog(`${messagePres.length} message(s) copied`,'success')).catch(() => deps.addLog('Copy failed','error'));
+
+    function _createIcon(iconName) {
+        return `<span class="material-icons-outlined">${iconName}</span>`;
     }
-    function init(dependencies) { deps = dependencies; deps.sendBtn.onclick = () => add(deps.chatInput.value); deps.chatInput.onkeydown = e => { if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)) add(deps.chatInput.value); }; deps.exportBtn.onclick = exportChat; deps.clearBtn.onclick = clearAll; if(deps.copyAllChatBtn) deps.copyAllChatBtn.onclick = copyAllChat; }
-    return { init, copy, edit, saveEdit, cancelEdit, delete: del, clearAll, exportChat, copyAllChat };
+
+    function _createActionsHTML(id) {
+        return (
+          `<div class="msg-actions">
+            <button aria-label="Highlight to Code" title="Highlight to Code">${_createIcon(deps.icons.code)}</button>
+            <button aria-label="Copy message" title="Copy" onclick="messageManager.copy(${id})">${_createIcon(deps.icons.copy)}</button>
+            <button aria-label="Edit message" title="Edit" onclick="messageManager.edit(${id})">${_createIcon(deps.icons.edit)}</button>
+            <button aria-label="Delete message" title="Delete" onclick="messageManager.delete(${id})">${_createIcon(deps.icons.trash)}</button>
+          </div>`
+        );
+    }
+
+    function _render(msgObj) {
+        const div = document.createElement('div');
+        div.className = 'msg';
+        div.dataset.id = msgObj.id;
+        div.innerHTML = `<strong style="font-weight:600">You:</strong><pre>${deps.escapeHtml(msgObj.content)}</pre>${_createActionsHTML(msgObj.id)}`;
+        deps.chatMessages.appendChild(div);
+        deps.chatMessages.scrollTop = deps.chatMessages.scrollHeight;
+    }
+    
+    function _findMessage(id) { return internalState.messages.find(m => m.id === Number(id)); }
+    function _findIndex(id) { return internalState.messages.findIndex(m => m.id === Number(id)); }
+
+    function add(content) {
+        const val = content.trim();
+        if (!val) return;
+        const msgObj = { id: Date.now(), type: 'user', content: val };
+        internalState.messages.push(msgObj);
+        _render(msgObj);
+        deps.chatInput.value = '';
+        deps.addLog('✓ Message saved');
+    }
+
+    function copy(id) {
+        const msgPreElement = document.querySelector(`.msg[data-id="${id}"] pre`);
+        if (!msgPreElement) return deps.addLog('⚠️ Could not find message content to copy.');
+        navigator.clipboard.writeText(msgPreElement.textContent)
+            .then(() => deps.addLog('✓ Message content copied'))
+            .catch(() => deps.addLog('⚠️ Failed to copy message'));
+    }
+
+    function edit(id) {
+        const msgObj = _findMessage(id);
+        if (!msgObj) return;
+        const div = document.querySelector(`[data-id="${id}"]`);
+        div.classList.add('editing');
+        div.innerHTML = `<strong style="font-weight:600">Edit:</strong><textarea id="edit-${id}">${deps.escapeHtml(msgObj.content)}</textarea>
+                        <div style="margin-top:8px;display:flex;gap:4px">
+                            <button class="btn" onclick="messageManager.saveEdit(${id})">Save</button>
+                            <button class="btn outline" onclick="messageManager.cancelEdit(${id})">Cancel</button>
+                        </div>`;
+        document.getElementById(`edit-${id}`).focus();
+    }
+
+    function saveEdit(id) {
+        const newContent = document.getElementById(`edit-${id}`).value.trim();
+        if (!newContent) return;
+        const msgObj = _findMessage(id);
+        if (!msgObj) return;
+        msgObj.content = newContent;
+        const div = document.querySelector(`[data-id="${id}"]`);
+        div.classList.remove('editing');
+        div.innerHTML = `<strong style="font-weight:600">You:</strong><pre>${deps.escapeHtml(newContent)}</pre>${_createActionsHTML(id)}`;
+        deps.addLog('✓ Message edited');
+    }
+
+    function cancelEdit(id) {
+        const msgObj = _findMessage(id);
+        if (!msgObj) return;
+        const div = document.querySelector(`[data-id="${id}"]`);
+        div.classList.remove('editing');
+        div.innerHTML = `<strong style="font-weight:600">You:</strong><pre>${deps.escapeHtml(msgObj.content)}</pre>${_createActionsHTML(id)}`;
+    }
+    
+    function del(id) {
+        if (!confirm('Delete this message?')) return;
+        const index = _findIndex(id);
+        if (index > -1) internalState.messages.splice(index, 1);
+        document.querySelector(`.msg[data-id="${id}"]`)?.remove();
+        deps.addLog('✓ Message deleted');
+    }
+
+    function clearAll() {
+        if (internalState.messages.length === 0) return deps.addLog('⚠️ No messages to clear.');
+        if (confirm('Delete all messages?')) {
+            internalState.messages.length = 0;
+            deps.chatMessages.innerHTML = '';
+            deps.addLog('✓ All messages deleted.');
+        }
+    }
+
+    function exportChat() {
+        if (internalState.messages.length === 0) return deps.addLog('⚠️ No messages to export');
+        const text = internalState.messages.map((m, i) => `[${i + 1}] ${new Date(m.id).toLocaleString()}\n${m.content}`).join('\n\n');
+        const blob = new Blob([`=== CHAT EXPORT ===\n\n${text}`], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `chat-export-${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        deps.addLog('✓ Messages exported');
+    }
+    
+    function init(dependencies) { deps = dependencies; }
+    return { init, add, copy, edit, saveEdit, cancelEdit, delete: del, clearAll, exportChat };
   })();
   window.messageManager = messageManager;
 
-  // API Manager (unchanged)
-  const apiManager = (function(){
-    let keys = [];
-    let deps = {};
-    function _save() { localStorage.setItem('apiKeys', JSON.stringify(keys)); }
-    function _load() { try { keys = JSON.parse(localStorage.getItem('apiKeys') || '[]'); } catch(e) { keys = []; } }
-    function _render() {
-      deps.apiList.innerHTML = keys.length === 0 ? '<div class="empty-state">No API keys saved yet.</div>' : '';
-      keys.forEach(k => { const item = document.createElement('div'); item.className='api-item'; item.dataset.id=k.id; const masked = k.value.substring(0,4)+'...'+k.value.substring(k.value.length-4); item.innerHTML = `<div class="api-item-info"><span class="api-item-name">${deps.escapeHtml(k.name)}</span><span class="api-item-key" data-visible="false" data-full-key="${deps.escapeHtml(k.value)}">${masked}</span></div><div class="api-item-actions"><button class="btn outline" onclick="apiManager.toggleVisibility('${k.id}')">Show</button><button class="btn outline" onclick="apiManager.delete('${k.id}')"><span class="material-icons-outlined">delete</span></button></div>`; deps.apiList.appendChild(item); });
-    }
-    function add(name, value) { keys.push({ id: Date.now().toString(), name, value }); _save(); _render(); deps.addLog(`API key for "${name}" saved.`,'success'); }
-    function del(id) { const k = keys.find(x=>x.id===id); if(k && confirm(`Delete "${k.name}"?`)) { keys = keys.filter(x=>x.id!==id); _save(); _render(); deps.addLog(`Deleted "${k.name}`,'success'); } }
-    function toggleVisibility(id) { const span = document.querySelector(`.api-item[data-id="${id}"] .api-item-key`); if(!span) return; const isVisible = span.dataset.visible === 'true'; span.textContent = isVisible ? span.dataset.fullKey.substring(0,4)+'...'+span.dataset.fullKey.substring(span.dataset.fullKey.length-4) : span.dataset.fullKey; span.dataset.visible = !isVisible; const btn = span.parentElement.nextElementSibling.querySelector('.btn'); if(btn) btn.textContent = isVisible ? 'Show' : 'Hide'; }
-    function init(dependencies) { deps = dependencies; _load(); _render(); deps.addApiKeyForm.addEventListener('submit', e => { e.preventDefault(); const name = deps.apiNameInput.value.trim(); const val = deps.apiKeyValueInput.value.trim(); if(name && val) { add(name,val); deps.apiNameInput.value = ''; deps.apiKeyValueInput.value = ''; } else deps.addLog('Please provide both name and key','warning'); }); }
-    return { init, delete: del, toggleVisibility };
+  const apiManager = (function() {
+      const internalState = { apiKeys: [] };
+      let deps = {};
+
+      function _save() { try { localStorage.setItem('apiKeys', JSON.stringify(internalState.apiKeys)); } catch (e) { deps.addLog('⚠️ Could not save API keys.'); } }
+      function _load() { try { internalState.apiKeys = JSON.parse(localStorage.getItem('apiKeys') || '[]'); } catch (e) { deps.addLog('⚠️ Could not load API keys.'); } }
+
+      function _render() {
+          deps.apiList.innerHTML = '';
+          if (internalState.apiKeys.length === 0) {
+              deps.apiList.innerHTML = '<div class="empty-state">No API keys saved yet.</div>';
+              return;
+          }
+
+          internalState.apiKeys.forEach(apiKey => {
+              const item = document.createElement('div');
+              item.className = 'api-item';
+              item.dataset.id = apiKey.id;
+              const maskedKey = apiKey.value.substring(0, 4) + '...'.padEnd(apiKey.value.length - 8, '•') + apiKey.value.substring(apiKey.value.length - 4);
+              item.innerHTML = `
+                  <div class="api-item-info">
+                      <span class="api-item-name">${deps.escapeHtml(apiKey.name)}</span>
+                      <span class="api-item-key" data-visible="false" data-full-key="${deps.escapeHtml(apiKey.value)}">${maskedKey}</span>
+                  </div>
+                  <div class="api-item-actions">
+                      <button class="btn outline" onclick="apiManager.toggleVisibility('${apiKey.id}')">Show</button>
+                      <button class="btn outline" onclick="apiManager.delete('${apiKey.id}')" title="Delete Key"><span class="material-icons-outlined">delete</span></button>
+                  </div>`;
+              deps.apiList.appendChild(item);
+          });
+      }
+
+      function add(name, value) {
+          internalState.apiKeys.push({ id: Date.now().toString(), name, value });
+          _save();
+          _render();
+          deps.addLog(`✓ API Key for "${name}" saved.`);
+      }
+
+      function del(id) {
+          const keyToDelete = internalState.apiKeys.find(k => k.id === id);
+          if (keyToDelete && confirm(`Delete API key for "${keyToDelete.name}"?`)) {
+              internalState.apiKeys = internalState.apiKeys.filter(key => key.id !== id);
+              _save();
+              _render();
+              deps.addLog(`✓ API Key for "${keyToDelete.name}" deleted.`);
+          }
+      }
+      
+      function toggleVisibility(id) {
+          const keySpan = document.querySelector(`.api-item[data-id="${id}"] .api-item-key`);
+          const button = document.querySelector(`.api-item[data-id="${id}"] .btn`);
+          if (!keySpan || !button) return;
+          
+          const isVisible = keySpan.dataset.visible === 'true';
+          const fullKey = keySpan.dataset.fullKey;
+          const maskedKey = fullKey.substring(0, 4) + '...'.padEnd(fullKey.length - 8, '•') + fullKey.substring(fullKey.length - 4);
+          keySpan.textContent = isVisible ? maskedKey : fullKey;
+          button.textContent = isVisible ? 'Show' : 'Hide';
+          keySpan.dataset.visible = !isVisible;
+      }
+      
+      function init(dependencies) {
+          deps = dependencies;
+          _load();
+          _render();
+      }
+      return { init, add, delete: del, toggleVisibility };
   })();
   window.apiManager = apiManager;
 
-  // UI Helpers
+  // ==============================================
+  // 5. EVENT HANDLERS & UI LOGIC
+  // ==============================================
   function setActiveView(viewName) {
     el.tabs.forEach(t => t.classList.toggle('active', t.dataset.view === viewName));
     el.views.forEach(v => v.classList.toggle('active', v.id === `${viewName}View`));
     state.view = viewName;
-    if(viewName === 'url') { state.frame = el.urlFrame; state.overlay = el.urlOverlay; state.badge = el.urlBadge; }
-    else { state.frame = el.previewFrame; state.overlay = el.previewOverlay; state.badge = el.previewBadge; }
-    if(state.inspect && viewName !== 'preview' && viewName !== 'url') toggleInspect();
-  }
-  function setDevice(device) {
-    state.device = device;
-    const dim = { desktop: { width:'100%', height:'100%', borderRadius:'0' }, tablet: { width:'768px', height:'1024px', borderRadius:'12px' }, mobile: { width:'375px', height:'812px', borderRadius:'12px' } };
-    [el.previewFrame, el.urlFrame].forEach(f => Object.assign(f.style, dim[device]));
-    document.querySelectorAll('.preview-wrap').forEach(w => w.classList.toggle('device-mode', device !== 'desktop'));
-    const deviceMenu = document.getElementById('deviceMenu');
-    if(deviceMenu) deviceMenu.querySelectorAll('.dropdown-item').forEach(i => i.classList.toggle('active', i.dataset.device === device));
-    addLog(`Switched to ${device} view`,'info');
-    if(deviceMenu) deviceMenu.classList.remove('active');
-  }
-  function setTheme(theme) { el.body.dataset.theme = theme; el.themeIcon.textContent = theme === 'dark' ? 'dark_mode' : 'light_mode'; }
-  function updateEditorLayout() { if(!el.codeArea) return; const lines = el.codeArea.value.split('\n').length; el.lineNumbers.textContent = Array.from({length: lines}, (_,i)=>i+1).join('\n'); el.codeArea.style.height = 'auto'; el.codeArea.style.height = `${Math.max(el.codeArea.scrollHeight, el.codeArea.parentElement.clientHeight)}px`; }
-  
-  function purgeLocalStorage() {
-    if(confirm('⚠️ DELETE ALL DATA?\n\nThis will permanently delete:\n- All your files and folders\n- All chat messages\n- All saved API keys\n- All settings\n\nThis action cannot be undone!')) {
-      const userInput = prompt('Type "CONFIRM" to delete all data:');
-      if(userInput === 'CONFIRM') {
-        localStorage.clear();
-        addLog('All data purged. Reloading application...', 'warning');
-        setTimeout(() => location.reload(), 500);
-      } else { addLog('Purge cancelled', 'info'); }
+
+    if (viewName === 'url') {
+      state.frame = el.urlFrame;
+      state.overlay = el.urlOverlay;
+      state.badge = el.urlBadge;
+    } else {
+      state.frame = el.previewFrame;
+      state.overlay = el.previewOverlay;
+      state.badge = el.previewBadge;
+    }
+
+    if (state.inspect && viewName !== 'preview' && viewName !== 'url') {
+      toggleInspect();
     }
   }
 
-  // Inspect element (simplified)
-  function toggleInspect() { state.inspect = !state.inspect; const inspectBtn = document.getElementById('inspectBtn'); if(inspectBtn) inspectBtn.classList.toggle('active', state.inspect); if(state.overlay) state.overlay.classList.toggle('active', state.inspect); if(state.badge) state.badge.classList.toggle('active', state.inspect); }
-  let hovered = null;
-  function handleInspectMove(e) { if(!state.frame || !isFrameAccessibleForInspect) return; try { const doc = state.frame.contentDocument; const rect = state.frame.getBoundingClientRect(); const elem = doc.elementFromPoint(e.clientX - rect.left, e.clientY - rect.top); if(elem && elem !== hovered) { if(hovered) hovered.style.outline = ''; hovered = elem; hovered.style.outline = '2px solid var(--accent)'; } } catch(e) { /* ignore */ } }
-  function handleInspectClick(e) { if(hovered) { const info = `📍 Selected: <${hovered.tagName.toLowerCase()}>`; el.chatInput.value = info; addLog('Element info copied to chat','success'); toggleInspect(); } }
+  function setDevice(device) {
+      if (!device) return;
+      state.device = device;
+      
+      const dimensions = {
+          desktop: { width: '100%', height: '100%', borderRadius: '0' },
+          tablet: { width: '768px', height: '1024px', borderRadius: '12px' },
+          mobile: { width: '375px', height: '812px', borderRadius: '12px' }
+      };
+      
+      const styles = dimensions[device];
+      [el.previewFrame, el.urlFrame].forEach(frame => Object.assign(frame.style, styles));
+      
+      document.querySelectorAll('.preview-wrap').forEach(w => w.classList.toggle('device-mode', device !== 'desktop'));
+      el.deviceMenu.querySelectorAll('.dropdown-item').forEach(i => i.classList.toggle('active', i.dataset.device === device));
+      el.deviceBtn.classList.toggle('active', device !== 'desktop');
+      
+      addLog(`✓ Switched to ${device} view`);
+      el.deviceMenu.classList.remove('active');
+  }
+
+  function setTheme(theme) {
+      el.body.dataset.theme = theme;
+      el.themeIcon.textContent = theme === 'dark' ? 'dark_mode' : 'light_mode';
+  }
   
+  function updateEditorLayout() {
+    if (!el.codeArea || !el.lineNumbers) return;
+    const lineCount = el.codeArea.value.split('\n').length || 1;
+    el.lineNumbers.textContent = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
+    el.codeArea.style.height = 'auto';
+    el.codeArea.style.height = `${Math.max(el.codeArea.parentElement.clientHeight, el.codeArea.scrollHeight)}px`;
+  }
+  
+  function showFrameAccessError() {
+      if (!state.badge || !state.overlay || !state.frame) return;
+      state.badge.textContent = state.inspect ? 'INSPECTION BLOCKED' : 'CONTENT BLOCKED';
+      state.badge.classList.add('active');
+      state.badge.style.backgroundColor = 'var(--error)';
+      state.overlay.style.cursor = 'not-allowed';
+      if (state.inspect) isFrameAccessibleForInspect = false;
+      
+      if (!state.frame.dataset.accessError) {
+        addLog(`⚠️ Cannot access iframe content. The site may have security policies (e.g., CORS) that block embedding or inspection.`, 'error');
+        state.frame.dataset.accessError = "true";
+      }
+  }
+
+  function resetFrameAccessState() {
+      if (!state.badge || !state.overlay || !state.frame) return;
+      state.frame.dataset.accessError = "";
+      state.badge.style.backgroundColor = '';
+      state.overlay.style.cursor = state.inspect ? 'crosshair' : '';
+      state.badge.textContent = 'INSPECTING';
+      state.badge.classList.toggle('active', state.inspect);
+      isFrameAccessibleForInspect = true;
+  }
+
+  function loadUrl() {
+    let url = el.urlInput.value.trim();
+    if (!url) return addLog('⚠️ Enter a URL');
+    if (!url.startsWith('http')) url = 'https://' + url;
+    try { new URL(url); } catch (e) { return addLog('⚠️ Invalid URL format'); }
+
+    resetFrameAccessState();
+    el.urlFrame.src = url;
+    addLog('→ Loading: ' + url);
+  }
+
+  function toggleInspect() {
+    state.inspect = !state.inspect;
+    el.inspectBtn.classList.toggle('active', state.inspect);
+    el.inspectBtn.title = state.inspect ? 'Cancel Inspect (Ctrl+Shift+C)' : 'Inspect (Ctrl+Shift+C)';
+    state.overlay.classList.toggle('active', state.inspect);
+    state.badge.classList.toggle('active', state.inspect);
+    if(state.inspect) isFrameAccessibleForInspect = true;
+  }
+  
+  let hovered = null;
+  function handleInspectMove(e) {
+    if (!isFrameAccessibleForInspect) return;
+    try {
+      const doc = state.frame.contentDocument;
+      const rect = state.frame.getBoundingClientRect();
+      const elem = doc.elementFromPoint(e.clientX - rect.left, e.clientY - rect.top);
+      if (elem && elem !== hovered) {
+        if (hovered) hovered.style.outline = '';
+        hovered = elem;
+        hovered.style.outline = '2px solid var(--accent)';
+      }
+    } catch (e) { showFrameAccessError(); }
+  }
+
+  function handleInspectClick(e) {
+    if (!isFrameAccessibleForInspect || !hovered) return;
+    try {
+        const info = extractInfo(hovered);
+        copyToChat(info);
+    } catch (e) { addLog('⚠️ Cannot select element'); }
+  }
+  
+  function extractInfo(elem) {
+    const computed = getComputedStyle(elem);
+    const rect = elem.getBoundingClientRect();
+    const tempOutline = elem.style.outline;
+    elem.style.outline = '';
+    const outerHTML = elem.outerHTML;
+    elem.style.outline = tempOutline;
+
+    const colorHex = rgbToHex(computed.color);
+    const bgHex = rgbToHex(computed.backgroundColor);
+
+    return `📍 Selected Element: <${elem.tagName.toLowerCase()}>
+
+- ID: ${elem.id || '(none)'}
+- Classes: ${elem.className || '(none)'}
+- Text Content: "${elem.textContent.trim().substring(0, 100)}"
+- Size: ${Math.round(rect.width)}px × ${Math.round(rect.height)}px
+- Color: ${computed.color} ${colorHex ? `[${colorHex}]` : ''}
+- Background: ${computed.backgroundColor} ${bgHex ? `[${bgHex}]` : ''}
+- Font: ${computed.fontSize} ${computed.fontFamily.split(',')[0]}
+
+- Outer HTML:
+\`\`\`html
+${outerHTML.substring(0, 400)}
+\`\`\`
+
+[REQUEST]
+->`;
+  }
+
+  function copyToChat(info) {
+    el.chatInput.value = info;
+    el.chatInput.focus();
+    addLog('✓ Element info copied to chat');
+    toggleInspect();
+  }
+
+  // File Explorer Functions
+  function showRenameModal(targetPath) {
+    contextMenuTarget = targetPath;
+    el.renameInput.value = targetPath.split('/').pop();
+    el.renameModal.classList.add('active');
+  }
+
+  function hideRenameModal() {
+    el.renameModal.classList.remove('active');
+    contextMenuTarget = null;
+    el.renameInput.value = '';
+  }
+
+  function handleRename() {
+    if (!contextMenuTarget) return;
+    const newName = el.renameInput.value.trim();
+    if (!newName) {
+      addLog('⚠️ Please enter a valid name', 'error');
+      return;
+    }
+    
+    const pathParts = contextMenuTarget.split('/');
+    pathParts[pathParts.length - 1] = newName;
+    const newPath = pathParts.join('/');
+    
+    if (newPath !== contextMenuTarget) {
+      codeManager.renameItem(contextMenuTarget, newPath);
+    }
+    hideRenameModal();
+  }
+
+  function handleDelete(targetPath) {
+    if (confirm(`Delete "${targetPath}"? This action cannot be undone.`)) {
+      codeManager.deleteItem(targetPath);
+    }
+  }
+
+  // File upload handlers
+  function handleUploadFiles() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      codeManager.uploadFiles(files);
+      el.addFileMenu.classList.remove('active');
+    };
+    input.click();
+  }
+
+  function handleUploadFolder() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      codeManager.uploadFiles(files);
+      el.addFileMenu.classList.remove('active');
+    };
+    input.click();
+  }
+
+  function handleCreateFile() {
+    const filename = prompt('Enter file name (e.g., script.js):');
+    if (!filename) return;
+    if (!filename.includes('.')) {
+      addLog('⚠️ Please include file extension (e.g., .html, .css, .js)', 'error');
+      return;
+    }
+    if (codeManager.addFile(filename, '', getFileType(filename))) {
+      codeManager.openFile(filename);
+    }
+    el.addFileMenu.classList.remove('active');
+  }
+
+  function handleCreateFolder() {
+    const foldername = prompt('Enter folder name:');
+    if (!foldername) return;
+    codeManager.addFolder(foldername);
+    el.addFileMenu.classList.remove('active');
+  }
+
+  function showFileContextMenu(e, path) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    hideFileContextMenu();
+    
+    contextMenuTarget = path;
+    const fileItem = e.currentTarget.closest('.file-item');
+    if (fileItem) {
+      fileItem.classList.add('context-menu-open');
+    }
+
+    const menu = el.fileContextMenu;
+    menu.classList.add('active');
+
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let top = e.clientY + 4;
+    let left = e.clientX + 4;
+
+    if (left + menuWidth > windowWidth) {
+        left = windowWidth - menuWidth - 8;
+    }
+    if (top + menuHeight > windowHeight) {
+        top = e.clientY - menuHeight - 4;
+    }
+
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+  }
+
+  function hideFileContextMenu() {
+    const activeItem = document.querySelector('.file-item.context-menu-open');
+    if (activeItem) {
+      activeItem.classList.remove('context-menu-open');
+    }
+    if(el.fileContextMenu) el.fileContextMenu.classList.remove('active');
+  }
+
+  // ==============================================
+  // 6. INITIALIZATION
+  // ==============================================
   function bindEvents() {
+    // Tabs
     el.tabs.forEach(tab => tab.onclick = () => setActiveView(tab.dataset.view));
+    
+    // Header controls
+    el.deviceBtn.onclick = (e) => { e.stopPropagation(); el.deviceMenu.classList.toggle('active'); };
+    el.deviceMenu.onclick = (e) => { const item = e.target.closest('.dropdown-item'); if(item) setDevice(item.dataset.device); };
     el.themeBtn.onclick = () => setTheme(el.body.dataset.theme === 'light' ? 'dark' : 'light');
-    if(el.purgeBtn) el.purgeBtn.onclick = purgeLocalStorage;
+    el.reloadBtn.onclick = () => state.view === 'url' ? el.urlFrame.src = el.urlFrame.src : el.renderBtn.click();
+    el.fullscreenBtn.onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.querySelector('.view.active .preview-wrap').requestFullscreen();
+    el.inspectBtn.onclick = toggleInspect;
+
+    // Chat
     el.sendBtn.onclick = () => messageManager.add(el.chatInput.value);
-    el.chatInput.onkeydown = e => { if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)) messageManager.add(el.chatInput.value); };
+    el.chatInput.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) el.sendBtn.click(); };
     el.clearBtn.onclick = () => messageManager.clearAll();
     el.exportBtn.onclick = () => messageManager.exportChat();
-    el.renderBtn.onclick = () => { const html = codeManager.renderProject(); if(html) { el.previewFrame.srcdoc = html; setActiveView('preview'); addLog('Render completed','success'); } else addLog('Render failed','error'); };
-    el.clearCodeBtn.onclick = () => { if(confirm('Clear code?')) codeManager.updateActiveFileContent(''); };
-    el.codeArea.addEventListener('input', () => { codeManager.updateActiveFileContent(el.codeArea.value); updateEditorLayout(); });
-    el.fileList.addEventListener('click', e => { const fi = e.target.closest('.file-item'); if(fi) codeManager.openFile(fi.dataset.path); });
-    el.editorTabs.addEventListener('click', e => { const tab = e.target.closest('.editor-tab'); if(e.target.closest('.close-tab-btn')) codeManager.closeFile(tab.dataset.path); else if(tab) codeManager.setActiveFile(tab.dataset.path); });
-    el.addFileMenuBtn.onclick = e => { e.stopPropagation(); el.addFileMenu.classList.toggle('active'); };
-    document.getElementById('uploadFilesBtn').onclick = () => { const input = document.createElement('input'); input.type='file'; input.multiple=true; input.onchange = e => { codeManager.uploadFiles(Array.from(e.target.files)); el.addFileMenu.classList.remove('active'); }; input.click(); };
-    document.getElementById('uploadFolderBtn').onclick = () => { const input = document.createElement('input'); input.type='file'; input.webkitdirectory=true; input.multiple=true; input.onchange = e => { codeManager.uploadFiles(Array.from(e.target.files)); el.addFileMenu.classList.remove('active'); }; input.click(); };
-    document.getElementById('createFileBtn').onclick = () => { const name = prompt('File name (e.g., style.css):'); if(name && name.includes('.')) { codeManager.addFile(name,''); codeManager.openFile(name); } else if(name) addLog('Please include extension','warning'); el.addFileMenu.classList.remove('active'); };
-    document.getElementById('createFolderBtn').onclick = () => { const name = prompt('Folder name:'); if(name) codeManager.addFolder(name); el.addFileMenu.classList.remove('active'); };
-    el.fileContextMenu.addEventListener('click', e => { const action = e.target.closest('.dropdown-item')?.dataset.action; if(action && contextMenuTarget) { if(action==='editor') codeManager.openFile(contextMenuTarget); if(action==='rename') { el.renameInput.value = contextMenuTarget.split('/').pop(); el.renameModal.classList.add('active'); } if(action==='delete') if(confirm(`Delete ${contextMenuTarget}?`)) codeManager.deleteItem(contextMenuTarget); } hideFileContextMenu(); });
-    el.cancelRenameBtn.onclick = () => el.renameModal.classList.remove('active');
-    el.confirmRenameBtn.onclick = () => { if(contextMenuTarget && el.renameInput.value.trim()) { const newPath = contextMenuTarget.substring(0, contextMenuTarget.lastIndexOf('/')+1) + el.renameInput.value.trim(); if(newPath !== contextMenuTarget) codeManager.renameItem(contextMenuTarget, newPath); } el.renameModal.classList.remove('active'); };
-    el.goBtn.onclick = () => { let url = el.urlInput.value.trim(); if(!url) return; if(!url.startsWith('http')) url='https://'+url; el.urlFrame.src = url; addLog(`Loading ${url}`,'info'); };
-    el.urlInput.onkeydown = e => { if(e.key==='Enter') el.goBtn.click(); };
+
+    // Code Editor
+    el.renderBtn.onclick = () => {
+      el.previewFrame.srcdoc = codeManager.getCombinedHtml();
+      setActiveView('preview');
+      resetFrameAccessState();
+      addLog('✓ Rendered successfully');
+    };
+    el.clearCodeBtn.onclick = () => { if (confirm('Clear code in active file?')) codeManager.clearActiveFile(); };
+    el.codeArea.addEventListener('input', () => {
+      codeManager.updateActiveFileContent(el.codeArea.value);
+      updateEditorLayout();
+    });
+    
+    // File explorer events
+    el.fileList.addEventListener('click', (e) => {
+      const fi = e.target.closest('.file-item');
+      if (fi && fi.dataset.path) {
+        codeManager.openFile(fi.dataset.path);
+      }
+    });
+    
+    el.fileList.addEventListener('contextmenu', (e) => {
+      const fi = e.target.closest('.file-item');
+      if (fi && fi.dataset.path) {
+        showFileContextMenu(e, fi.dataset.path);
+      }
+    });
+    
+    el.editorTabs.addEventListener('click', e => {
+      const tab = e.target.closest('.editor-tab');
+      if (e.target.closest('.close-tab-btn')) codeManager.closeFile(tab.dataset.path);
+      else if (tab) codeManager.setActiveFile(tab.dataset.path);
+    });
+    
+    el.addFileMenuBtn.onclick = (e) => { e.stopPropagation(); el.addFileMenu.classList.toggle('active'); };
+    
+    // File menu actions
+    document.getElementById('uploadFilesBtn').onclick = handleUploadFiles;
+    document.getElementById('uploadFolderBtn').onclick = handleUploadFolder;
+    document.getElementById('createFileBtn').onclick = handleCreateFile;
+    document.getElementById('createFolderBtn').onclick = handleCreateFolder;
+    
+    // Context menu actions
+    el.fileContextMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.dropdown-item');
+      if (!item || !contextMenuTarget) return;
+      const action = item.dataset.action;
+      
+      switch(action) {
+        case 'editor':
+          codeManager.openFile(contextMenuTarget);
+          break;
+        case 'rename':
+          showRenameModal(contextMenuTarget);
+          break;
+        case 'delete':
+          handleDelete(contextMenuTarget);
+          break;
+        case 'move':
+          addLog('⚠️ Move feature coming soon!', 'error');
+          break;
+      }
+      hideFileContextMenu();
+    });
+    
+    // Rename modal
+    el.cancelRenameBtn.onclick = hideRenameModal;
+    el.confirmRenameBtn.onclick = handleRename;
+    el.renameInput.onkeydown = (e) => { if (e.key === 'Enter') handleRename(); };
+    
     new ResizeObserver(updateEditorLayout).observe(el.codeArea.parentElement);
-    if(el.previewOverlay) { el.previewOverlay.addEventListener('mousemove', handleInspectMove); el.previewOverlay.addEventListener('click', handleInspectClick); }
-    if(el.urlOverlay) { el.urlOverlay.addEventListener('mousemove', handleInspectMove); el.urlOverlay.addEventListener('click', handleInspectClick); }
-    document.addEventListener('click', e => { if(!el.addFileMenu.contains(e.target) && !el.addFileMenuBtn.contains(e.target)) el.addFileMenu.classList.remove('active'); if(!el.fileContextMenu.contains(e.target) && !e.target.closest('.file-item')) hideFileContextMenu(); });
-    // Device button simulation (since BKL-010 not yet implemented, we keep a dummy)
-    const deviceBtn = document.getElementById('deviceBtn');
-    if(deviceBtn) deviceBtn.onclick = () => { const menu = document.getElementById('deviceMenu'); if(menu) menu.classList.toggle('active'); };
-    const deviceMenu = document.getElementById('deviceMenu');
-    if(deviceMenu) deviceMenu.addEventListener('click', e => { const item = e.target.closest('.dropdown-item'); if(item && item.dataset.device) setDevice(item.dataset.device); });
+    
+    // URL Loader
+    el.goBtn.onclick = loadUrl;
+    el.urlInput.onkeydown = e => { if (e.key === 'Enter') loadUrl(); };
+    el.urlFrame.onload = () => {
+        addLog('✓ URL loaded');
+        try { if(el.urlFrame.contentDocument) resetFrameAccessState(); } catch (e) { showFrameAccessError(); }
+    };
+    
+    // API Manager
+    el.addApiKeyForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = el.apiNameInput.value.trim();
+        const value = el.apiKeyValueInput.value.trim();
+        if (name && value) {
+            apiManager.add(name, value);
+            el.addApiKeyForm.reset();
+        } else {
+            addLog('⚠️ Please provide both a name and a value for the API key.');
+        }
+    });
+
+    // Global listeners
+    document.addEventListener('keydown', (e) => { if (e.shiftKey && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); toggleInspect(); } });
+    document.addEventListener('click', (e) => {
+      if (!el.addFileMenuBtn.contains(e.target) && !el.addFileMenu.contains(e.target)) el.addFileMenu.classList.remove('active');
+      if (!el.deviceBtn.contains(e.target) && !el.deviceMenu.contains(e.target)) el.deviceMenu.classList.remove('active');
+      if (!el.fileContextMenu.contains(e.target) && !e.target.closest('.file-item')) hideFileContextMenu();
+      if (e.target === el.renameModal) hideRenameModal();
+    });
+    
+    // Inspector listeners
+    [el.previewOverlay, el.urlOverlay].forEach(o => {
+      o.addEventListener('mousemove', handleInspectMove);
+      o.addEventListener('click', handleInspectClick);
+    });
   }
-  function hideFileContextMenu() { if(el.fileContextMenu) el.fileContextMenu.classList.remove('active'); contextMenuTarget = null; }
+  
   function init() {
     setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     setActiveView('preview');
+    setDevice('desktop');
+
     codeManager.init({ fileList: el.fileList, editorTabs: el.editorTabs, codeArea: el.codeArea, lineNumbers: el.lineNumbers });
-    messageManager.init({ chatMessages: el.chatMessages, chatInput: el.chatInput, addLog, escapeHtml, sendBtn: el.sendBtn, exportBtn: el.exportBtn, clearBtn: el.clearBtn, copyAllChatBtn: el.copyAllChatBtn });
-    apiManager.init({ apiList: el.apiList, addApiKeyForm: el.addApiKeyForm, apiNameInput: el.apiNameInput, apiKeyValueInput: el.apiKeyValueInput, addLog, escapeHtml });
+    messageManager.init({ chatMessages: el.chatMessages, chatInput: el.chatInput, addLog: addLog, escapeHtml: escapeHtml, icons: icons });
+    apiManager.init({ apiList: el.apiList, addApiKeyForm: el.addApiKeyForm, addLog: addLog, escapeHtml: escapeHtml });
+
     bindEvents();
-    addLog('DOF Code v1.3.0 - Render Active File (BKL-011) active', 'success');
-    addLog('Tip: Open any HTML file, click Render to preview that specific file', 'info');
+
+    addLog('✓ Application started');
+    addLog('✓ File upload and management features are now active');
   }
+  
   init();
+
 })();
 </script>
+
 </body>
 </html>
